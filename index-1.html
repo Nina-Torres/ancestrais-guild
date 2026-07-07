@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ancestrais — Controle de Slots</title>
+<link rel="icon" href="data:,">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: radial-gradient(circle at 50% -10%, #0F1B33 0%, #070B15 45%, #030509 100%);
+    color: #EAF0F8;
+    font-family: 'Georgia', 'Segoe UI', serif;
+    padding: 20px 16px 60px;
+  }
+  .ui { font-family: 'Segoe UI', sans-serif; }
+  input, select, button { font-family: 'Segoe UI', sans-serif; }
+  button { cursor: pointer; }
+  ::placeholder { color: #5A6A85; }
+  @keyframes moonGlow { 0%,100%{opacity:.6; filter:brightness(1)} 50%{opacity:1; filter:brightness(1.15)} }
+  .header { display: flex; align-items: center; gap: 12px; max-width: 480px; margin: 0 auto; }
+  .badge {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: radial-gradient(circle, #BFE0FF 0%, #4F86C6 55%, #14243B 100%);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 0 1px rgba(191,224,255,0.25), 0 0 22px rgba(127,184,232,0.45);
+    animation: moonGlow 4s ease-in-out infinite;
+    flex-shrink: 0;
+  }
+  .title { font-size: 21px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: #F2F6FC; }
+  .subtitle { font-size: 12px; color: #7C8AA3; letter-spacing: 0.4px; }
+  .divider { height: 1px; max-width: 480px; margin: 14px auto 2px; background: linear-gradient(90deg, transparent, rgba(127,184,232,0.4), transparent); }
+  .wrap { max-width: 480px; margin: 0 auto; }
+  .banner {
+    width: 100%; margin-top: 14px; padding: 10px 14px; border-radius: 10px;
+    background: rgba(127,184,232,0.10); border: 1px solid rgba(127,184,232,0.3);
+    color: #BFE0FF; font-size: 13px; display: flex; align-items: center; gap: 8px; text-align: left;
+  }
+  .banner.ok { background: rgba(111,209,197,0.08); border-color: rgba(111,209,197,0.25); color: #B7E8E0; }
+  .gold-card {
+    margin-top: 18px; border-radius: 14px; padding: 14px 16px;
+    background: linear-gradient(135deg, rgba(127,184,232,0.12), rgba(15,27,51,0.4));
+    border: 1px solid rgba(127,184,232,0.25);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .gold-label { font-size: 11px; color: #7C8AA3; letter-spacing: 0.3px; }
+  .gold-value { font-size: 19px; font-weight: 700; color: #F2F6FC; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+  .stat { border-radius: 12px; padding: 10px 8px; text-align: center; border: 1px solid; }
+  .stat .num { font-size: 20px; font-weight: 700; }
+  .stat .lbl { font-size: 11px; color: #7C8AA3; margin-top: 2px; }
+  .add-btn {
+    width: 100%; margin-top: 16px; padding: 13px; border-radius: 12px; border: none;
+    background: linear-gradient(135deg, #2E5C8A, #7FB8E8); color: #08111F; font-weight: 700; font-size: 14.5px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 6px 18px rgba(127,184,232,0.25);
+  }
+  .overlay {
+    position: fixed; inset: 0; background: rgba(3,5,9,0.82);
+    display: none; align-items: flex-end; justify-content: center; z-index: 50;
+    backdrop-filter: blur(3px);
+  }
+  .overlay.open { display: flex; }
+  .modal {
+    width: 100%; max-width: 480px; background: #0C1526;
+    border-radius: 20px 20px 0 0; padding: 20px;
+    border: 1px solid rgba(127,184,232,0.28); border-bottom: none;
+  }
+  .modal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .modal-head .t { font-size: 16px; font-weight: 700; color: #F2F6FC; }
+  .modal-head button { background: none; border: none; color: #7C8AA3; font-size: 20px; }
+  label { font-size: 12px; color: #7C8AA3; display: block; margin-bottom: 6px; }
+  .field { width: 100%; padding: 11px 12px; border-radius: 10px; margin-bottom: 14px; background: #070D18; border: 1px solid #223350; color: #EAF0F8; font-size: 14px; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > div { flex: 1; }
+  .hint { font-size: 12px; color: #5A6A85; margin-bottom: 14px; }
+  .err { color: #E8929A; font-size: 12.5px; margin-bottom: 12px; }
+  .save-btn { width: 100%; padding: 13px; border-radius: 12px; border: none; background: linear-gradient(135deg, #2E5C8A, #7FB8E8); color: #08111F; font-weight: 700; font-size: 14.5px; }
+  .empty { text-align: center; color: #5A6A85; font-size: 13.5px; margin-top: 40px; }
+  .list { margin-top: 22px; }
+  .card {
+    background: #0A1220; border: 1px solid; border-radius: 14px; padding: 13px 14px; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .name-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+  .p-name { font-size: 15px; font-weight: 600; color: #F2F6FC; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .p-badge { font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 20px; border: 1px solid; display: inline-flex; align-items: center; gap: 4px; }
+  .meta-row { font-size: 12px; color: #7C8AA3; display: flex; gap: 12px; flex-wrap: wrap; }
+  .exit-line { font-size: 12.5px; margin-top: 2px; font-weight: 600; }
+  .del-btn { background: none; border: none; color: #5A6A85; padding: 8px; font-size: 16px; }
+  .loading { text-align: center; color: #5A6A85; font-size: 13px; margin-top: 40px; }
+</style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">🌙</div>
+    <div>
+      <div class="title">Ancestrais</div>
+      <div class="subtitle">Registro dos slots da guilda</div>
+    </div>
+  </div>
+  <div class="divider"></div>
+
+  <div class="wrap" id="app">
+    <div class="loading">Carregando dados da guilda...</div>
+  </div>
+
+<script type="module">
+  // ==========================================================
+  // 1) COLE AQUI SUA firebaseConfig (copiada do console do Firebase)
+  // ==========================================================
+  const firebaseConfig = {
+    apiKey: "AIzaSyBW_74559tSXzJ9d4sSjq_EqdlYRtg2ABs",
+    authDomain: "ancestrais-guild.firebaseapp.com",
+    projectId: "ancestrais-guild",
+    storageBucket: "ancestrais-guild.firebasestorage.app",
+    messagingSenderId: "106734993125",
+    appId: "1:106734993125:web:96aa499c1ba11db44cde0c"
+  };
+  // ==========================================================
+
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import {
+    getFirestore, collection, onSnapshot, addDoc, deleteDoc, doc
+  } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const playersCol = collection(db, "players");
+
+  const DAY = 24 * 60 * 60 * 1000;
+  const DEFAULT_PRICE = 35000;
+  const DEFAULT_DURATION = 30;
+
+  const toDateInput = (d) => new Date(d).toISOString().slice(0, 10);
+  const addDays = (dateStr, days) => {
+    const d = new Date(dateStr + 'T00:00:00');
+    d.setDate(d.getDate() + Number(days));
+    return toDateInput(d);
+  };
+  const daysUntil = (dateStr) => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const target = new Date(dateStr + 'T00:00:00');
+    return Math.round((target - today) / DAY);
+  };
+  const statusOf = (dateStr) => {
+    const d = daysUntil(dateStr);
+    if (d < 0) return 'expired';
+    if (d <= 3) return 'soon';
+    return 'active';
+  };
+  const fmtGold = (n) => (Number(n) || 0).toLocaleString('pt-BR');
+  const fmtDate = (s) => s.split('-').reverse().join('/');
+
+  const STATUS_META = {
+    active:  { label: 'Ativo',    color: '#6FD1C5', bg: 'rgba(111,209,197,0.10)', border: 'rgba(111,209,197,0.3)' },
+    soon:    { label: 'Vencendo', color: '#7FB8E8', bg: 'rgba(127,184,232,0.12)', border: 'rgba(127,184,232,0.4)' },
+    expired: { label: 'Vencido',  color: '#8A93A6', bg: 'rgba(138,147,166,0.10)', border: 'rgba(138,147,166,0.35)' },
+  };
+
+  let players = [];
+  let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
+  let sentLog = JSON.parse(localStorage.getItem('ancestrais-notif-log') || '{}');
+
+  const appEl = document.getElementById('app');
+
+  function render() {
+    const sorted = [...players].sort((a,b) => new Date(a.exit) - new Date(b.exit));
+    const counts = { active:0, soon:0, expired:0 };
+    let total = 0, ativo = 0;
+    players.forEach(p => {
+      counts[statusOf(p.exit)]++;
+      const v = Number(p.price) || 0;
+      total += v;
+      if (statusOf(p.exit) !== 'expired') ativo += v;
+    });
+
+    appEl.innerHTML = `
+      ${notifPermission === 'granted' ? `
+        <div class="banner ok">🔔 Avisos ativados neste navegador</div>
+      ` : notifPermission === 'unsupported' ? '' : `
+        <button class="banner" id="notifBtn" style="width:100%;">🔔 Ativar avisos para slots vencendo (funciona com a página aberta)</button>
+      `}
+
+      <div class="gold-card">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">🪙</span>
+          <div>
+            <div class="gold-label">Gold arrecadado (total)</div>
+            <div class="gold-value">${fmtGold(total)}</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="gold-label">Slots ativos/vencendo</div>
+          <div style="font-size:15px;font-weight:600;color:#9DC3EA;">${fmtGold(ativo)}</div>
+        </div>
+      </div>
+
+      <div class="stats">
+        ${['active','soon','expired'].map(k => `
+          <div class="stat" style="background:${STATUS_META[k].bg};border-color:${STATUS_META[k].border};">
+            <div class="num" style="color:${STATUS_META[k].color};">${counts[k]}</div>
+            <div class="lbl">${STATUS_META[k].label}</div>
+          </div>
+        `).join('')}
+      </div>
+
+      <button class="add-btn" id="openForm">＋ Adicionar jogador</button>
+
+      <div class="list">
+        ${sorted.length === 0 ? `<div class="empty">Nenhum jogador cadastrado ainda.<br>Toque em "Adicionar jogador" para começar.</div>` : ''}
+        ${sorted.map(p => {
+          const st = statusOf(p.exit);
+          const meta = STATUS_META[st];
+          const d = daysUntil(p.exit);
+          const icon = st === 'expired' ? '⚠️' : st === 'soon' ? '⏰' : '✅';
+          return `
+            <div class="card" style="border-color:${meta.border};">
+              <div style="flex:1;min-width:0;">
+                <div class="name-row">
+                  <span class="p-name">${p.name}</span>
+                  <span class="p-badge" style="background:${meta.bg};color:${meta.color};border-color:${meta.border};">${icon} ${meta.label}</span>
+                </div>
+                <div class="meta-row">
+                  <span>📅 Entrou ${fmtDate(p.entry)}</span>
+                  <span>🪙 ${fmtGold(p.price)} gold</span>
+                </div>
+                <div class="exit-line" style="color:${meta.color};">
+                  Sai ${fmtDate(p.exit)} ${d >= 0 ? `(em ${d} dia${d===1?'':'s'})` : `(há ${-d} dia${-d===1?'':'s'})`}
+                </div>
+              </div>
+              <button class="del-btn" data-id="${p.id}">🗑️</button>
+            </div>
+          `;
+        }).join('')}
+      </div>
+
+      <div class="overlay" id="overlay">
+        <div class="modal">
+          <div class="modal-head">
+            <div class="t">Novo jogador</div>
+            <button id="closeForm">✕</button>
+          </div>
+          <label>Nome do jogador</label>
+          <input class="field" id="fName" placeholder="Ex: DragonSlayer99" />
+          <label>Data de entrada</label>
+          <input class="field" id="fEntry" type="date" value="${toDateInput(new Date())}" />
+          <div class="row2">
+            <div>
+              <label>Duração (dias)</label>
+              <input class="field" id="fDuration" type="number" value="${DEFAULT_DURATION}" />
+            </div>
+            <div>
+              <label>Valor do slot (gold)</label>
+              <input class="field" id="fPrice" type="number" value="${DEFAULT_PRICE}" />
+            </div>
+          </div>
+          <div class="hint" id="fHint">Padrão: 35.000 gold / 30 dias</div>
+          <div class="err" id="fErr" style="display:none;"></div>
+          <button class="save-btn" id="fSave">Salvar jogador</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('openForm').onclick = () => document.getElementById('overlay').classList.add('open');
+    document.getElementById('closeForm').onclick = () => document.getElementById('overlay').classList.remove('open');
+    document.getElementById('overlay').onclick = (e) => { if (e.target.id === 'overlay') e.currentTarget.classList.remove('open'); };
+
+    const upd = () => {
+      const entry = document.getElementById('fEntry').value;
+      const dur = document.getElementById('fDuration').value;
+      document.getElementById('fHint').textContent = entry && dur
+        ? `Saída prevista: ${fmtDate(addDays(entry, dur))} · Padrão: 35.000 gold / 30 dias`
+        : 'Padrão: 35.000 gold / 30 dias';
+    };
+    document.getElementById('fEntry').oninput = upd;
+    document.getElementById('fDuration').oninput = upd;
+
+    document.getElementById('fSave').onclick = async () => {
+      const name = document.getElementById('fName').value.trim();
+      const entry = document.getElementById('fEntry').value;
+      const duration = Number(document.getElementById('fDuration').value);
+      const price = Number(document.getElementById('fPrice').value);
+      const errEl = document.getElementById('fErr');
+      if (!name) { errEl.textContent = 'Digite o nome do jogador.'; errEl.style.display = 'block'; return; }
+      if (!entry) { errEl.textContent = 'Escolha a data de entrada.'; errEl.style.display = 'block'; return; }
+      if (!duration || duration <= 0) { errEl.textContent = 'A duração precisa ser maior que zero.'; errEl.style.display = 'block'; return; }
+      if (isNaN(price) || price < 0) { errEl.textContent = 'Valor do slot inválido.'; errEl.style.display = 'block'; return; }
+      const exit = addDays(entry, duration);
+      try {
+        await addDoc(playersCol, { name, entry, duration, exit, price });
+        document.getElementById('overlay').classList.remove('open');
+      } catch (e) {
+        errEl.textContent = 'Erro ao salvar no banco de dados: ' + e.message;
+        errEl.style.display = 'block';
+      }
+    };
+
+    document.querySelectorAll('.del-btn').forEach(btn => {
+      btn.onclick = async () => {
+        try { await deleteDoc(doc(db, 'players', btn.dataset.id)); }
+        catch (e) { alert('Erro ao remover: ' + e.message); }
+      };
+    });
+
+    const notifBtn = document.getElementById('notifBtn');
+    if (notifBtn) {
+      notifBtn.onclick = async () => {
+        const perm = await Notification.requestPermission();
+        notifPermission = perm;
+        render();
+      };
+    }
+  }
+
+  function checkNotify() {
+    if (notifPermission !== 'granted') return;
+    const today = toDateInput(new Date());
+    let changed = false;
+    players.forEach(p => {
+      const st = statusOf(p.exit);
+      if (st === 'soon' || st === 'expired') {
+        const key = `${p.id}-${today}`;
+        if (!sentLog[key]) {
+          new Notification('Ancestrais — slot ' + (st === 'expired' ? 'vencido' : 'vencendo'), {
+            body: `${p.name} — saída prevista em ${fmtDate(p.exit)}`
+          });
+          sentLog[key] = true;
+          changed = true;
+        }
+      }
+    });
+    if (changed) localStorage.setItem('ancestrais-notif-log', JSON.stringify(sentLog));
+  }
+
+  onSnapshot(playersCol, (snap) => {
+    players = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    render();
+    checkNotify();
+  }, (error) => {
+    appEl.innerHTML = `<div class="loading" style="color:#E8929A;">Erro ao conectar ao Firebase: ${error.message}<br><br>Verifique se você colou a firebaseConfig corretamente no código.</div>`;
+  });
+</script>
+</body>
+</html>
