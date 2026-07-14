@@ -59,6 +59,11 @@
   }
   .gold-label { font-size: 11px; color: #7C8AA3; letter-spacing: 0.3px; }
   .gold-value { font-size: 19px; font-weight: 700; color: #F2F6FC; }
+  .pay-breakdown {
+    display: flex; justify-content: space-between; gap: 10px; margin-top: 8px;
+    font-size: 12px; color: #9DC3EA; padding: 0 4px;
+  }
+  .pay-breakdown strong { color: #F2F6FC; }
   .mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
   .mini-stat {
     border-radius: 12px; padding: 10px 8px; text-align: center;
@@ -66,10 +71,18 @@
   }
   .mini-stat .num { font-size: 16px; font-weight: 700; color: #F2F6FC; }
   .mini-stat .lbl { font-size: 10px; color: #7C8AA3; margin-top: 2px; line-height: 1.3; }
+  .mini-stat .mini-sub { font-size: 9.5px; color: #6C7A94; margin-top: 3px; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
   .stat { border-radius: 12px; padding: 10px 8px; text-align: center; border: 1px solid; }
   .stat .num { font-size: 20px; font-weight: 700; }
   .stat .lbl { font-size: 11px; color: #7C8AA3; margin-top: 2px; }
+  .clickable-stat { width: 100%; transition: transform .1s ease; }
+  .clickable-stat:active { transform: scale(0.96); }
+  .stat-selected { box-shadow: 0 0 0 2px currentColor inset; }
+  .filter-chip {
+    margin-top: 10px; font-size: 12px; color: #9DC3EA; display: flex; align-items: center; gap: 8px;
+  }
+  .filter-chip button { background: none; border: none; color: #7C8AA3; font-size: 11.5px; text-decoration: underline; }
 
   .chart-card {
     margin-top: 14px; border-radius: 14px; padding: 14px 16px;
@@ -232,11 +245,14 @@
   let players = [];
   let config = { maxSlots: 0 };
   let currentTab = 'active';
+  let statusFilter = null; // null | 'active' | 'soon' | 'expired'
   let editingId = null;
   let notifPermission = (typeof Notification !== 'undefined') ? Notification.permission : 'unsupported';
   let sentLog = JSON.parse(localStorage.getItem('ancestrais-notif-log') || '{}');
 
   const appEl = document.getElementById('app');
+
+  
 
   function generatePDF() {
     const { jsPDF } = window.jspdf;
@@ -251,13 +267,14 @@
     docPdf.text('Gerado em ' + today, 14, 24);
 
     let y = 36;
-    docPdf.setFontSize(10);
+    docPdf.setFontSize(9);
     docPdf.setTextColor(0);
     docPdf.setFont(undefined, 'bold');
     docPdf.text('Jogador', 14, y);
-    docPdf.text('Entrada', 100, y);
-    docPdf.text('Saída', 135, y);
-    docPdf.text('Status', 170, y);
+    docPdf.text('Entrada', 82, y);
+    docPdf.text('Saída', 112, y);
+    docPdf.text('Status', 142, y);
+    docPdf.text('Pagamento', 168, y);
     docPdf.setFont(undefined, 'normal');
     y += 4;
     docPdf.setDrawColor(200);
@@ -267,12 +284,14 @@
     sorted.forEach(p => {
       if (y > 280) { docPdf.addPage(); y = 20; }
       const st = statusOf(p.exit);
-      docPdf.text(String(p.name).slice(0, 30), 14, y);
-      docPdf.text(fmtDate(p.entry), 100, y);
-      docPdf.text(fmtDate(p.exit), 135, y);
-      docPdf.text(STATUS_META[st].label, 170, y);
+      docPdf.text(String(p.name).slice(0, 26), 14, y);
+      docPdf.text(fmtDate(p.entry), 82, y);
+      docPdf.text(fmtDate(p.exit), 112, y);
+      docPdf.text(STATUS_META[st].label, 142, y);
+      docPdf.text(p.pagamento === 'pix' ? 'Pix' : 'Gold', 168, y);
       y += 7;
     });
+
 
     if (sorted.length === 0) docPdf.text('Nenhum jogador cadastrado.', 14, y);
     docPdf.save(`ancestrais-slots-${toDateInput(new Date())}.pdf`);
@@ -307,7 +326,10 @@
   function render() {
     const activePlayers = players.filter(p => !p.archived);
     const historyPlayers = players.filter(p => p.archived);
-    const listPlayers = currentTab === 'active' ? activePlayers : historyPlayers;
+    let listPlayers = currentTab === 'active' ? activePlayers : historyPlayers;
+    if (currentTab === 'active' && statusFilter) {
+      listPlayers = listPlayers.filter(p => statusOf(p.exit) === statusFilter);
+    }
     const sorted = [...listPlayers].sort((a,b) => currentTab === 'active'
       ? new Date(a.exit) - new Date(b.exit)
       : new Date(b.archivedAt || b.exit) - new Date(a.archivedAt || a.exit));
@@ -315,11 +337,17 @@
     const counts = { active:0, soon:0, expired:0 };
     activePlayers.forEach(p => counts[statusOf(p.exit)]++);
 
-    let total = 0, monthGold = 0, weekGold = 0, monthPayers = 0, ativo = 0;
+    const isPix = (p) => p.pagamento === 'pix';
+    let total = 0, totalPix = 0, totalGold = 0;
+    let monthGold = 0, monthPix = 0, monthGoldPay = 0, weekGold = 0, monthPayers = 0, ativo = 0;
     players.forEach(p => {
       const v = Number(p.price) || 0;
       total += v;
-      if (isSameMonth(p.entry)) { monthGold += v; monthPayers++; }
+      if (isPix(p)) totalPix += v; else totalGold += v;
+      if (isSameMonth(p.entry)) {
+        monthGold += v; monthPayers++;
+        if (isPix(p)) monthPix += v; else monthGoldPay += v;
+      }
       if (isFromWeek(p.entry)) weekGold += v;
     });
     activePlayers.forEach(p => { if (statusOf(p.exit) !== 'expired') ativo += (Number(p.price)||0); });
@@ -329,6 +357,7 @@
 
     const maxSlots = Number(config.maxSlots) || 0;
     const showFull = maxSlots > 0 && activePlayers.length >= Math.ceil(maxSlots * 0.8);
+
 
     appEl.innerHTML = `
       ${notifPermission === 'granted' ? `
@@ -367,21 +396,32 @@
           <div style="font-size:15px;font-weight:600;color:#9DC3EA;">${fmtGold(ativo)}</div>
         </div>
       </div>
+      <div class="pay-breakdown">
+        <span>💳 Pix: <strong>${fmtGold(totalPix)}</strong></span>
+        <span>🪙 Gold do jogo: <strong>${fmtGold(totalGold)}</strong></span>
+      </div>
 
       <div class="mini-stats">
         <div class="mini-stat"><div class="num">${monthPayers}</div><div class="lbl">Pagantes<br>no mês</div></div>
         <div class="mini-stat"><div class="num">${fmtGold(weekGold)}</div><div class="lbl">Gold na<br>semana</div></div>
-        <div class="mini-stat"><div class="num">${fmtGold(monthGold)}</div><div class="lbl">Gold no<br>mês</div></div>
+        <div class="mini-stat">
+          <div class="num">${fmtGold(monthGold)}</div>
+          <div class="lbl">Gold no mês</div>
+          <div class="mini-sub">💳${fmtGold(monthPix)} · 🪙${fmtGold(monthGoldPay)}</div>
+        </div>
       </div>
 
       <div class="stats">
         ${['active','soon','expired'].map(k => `
-          <div class="stat" style="background:${STATUS_META[k].bg};border-color:${STATUS_META[k].border};">
+          <button class="stat clickable-stat ${statusFilter === k ? 'stat-selected' : ''}" data-status="${k}" style="background:${STATUS_META[k].bg};border-color:${STATUS_META[k].border};">
             <div class="num" style="color:${STATUS_META[k].color};">${counts[k]}</div>
             <div class="lbl">${STATUS_META[k].label}</div>
-          </div>
+          </button>
         `).join('')}
       </div>
+      ${statusFilter ? `
+        <div class="filter-chip">Mostrando: ${STATUS_META[statusFilter].label} <button id="clearFilter">✕ limpar filtro</button></div>
+      ` : ''}
 
       ${buildChart()}
 
@@ -412,7 +452,7 @@
                   </div>
                   <div class="meta-row">
                     <span>📅 Entrou ${fmtDate(p.entry)}</span>
-                    <span>🪙 ${fmtGold(p.price)} gold</span>
+                    <span>${p.pagamento === 'pix' ? '💳' : '🪙'} ${fmtGold(p.price)} gold${p.pagamento === 'pix' ? ' (Pix)' : ''}</span>
                   </div>
                   ${currentTab === 'active' ? `
                     <div class="exit-line" style="color:${meta.color};">
@@ -459,6 +499,11 @@
               <input class="field" id="fPrice" type="number" value="${DEFAULT_PRICE}" />
             </div>
           </div>
+          <label>Forma de pagamento</label>
+          <select class="field" id="fPagamento">
+            <option value="gold">🪙 Gold no jogo</option>
+            <option value="pix">💳 Pix</option>
+          </select>
           <label>Observações (opcional)</label>
           <textarea class="field" id="fObs" placeholder="Ex: pediu pra sair mais cedo, combinou pagamento atrasado..."></textarea>
           <div class="hint" id="fHint">Padrão: 35.000 gold / 30 dias</div>
@@ -486,6 +531,7 @@
     document.getElementById('fEntry').value = editingPlayer ? editingPlayer.entry : toDateInput(new Date());
     document.getElementById('fDuration').value = editingPlayer ? editingPlayer.duration : DEFAULT_DURATION;
     document.getElementById('fPrice').value = editingPlayer ? editingPlayer.price : DEFAULT_PRICE;
+    document.getElementById('fPagamento').value = editingPlayer ? (editingPlayer.pagamento || 'gold') : 'gold';
     document.getElementById('fObs').value = editingPlayer ? (editingPlayer.obs || '') : '';
 
     document.getElementById('openForm').onclick = () => { editingId = null; render(); document.getElementById('overlay').classList.add('open'); };
@@ -494,7 +540,18 @@
     document.getElementById('genPdf').onclick = generatePDF;
 
     document.getElementById('tabActive').onclick = () => { currentTab = 'active'; render(); };
-    document.getElementById('tabHistory').onclick = () => { currentTab = 'history'; render(); };
+    document.getElementById('tabHistory').onclick = () => { currentTab = 'history'; statusFilter = null; render(); };
+
+    document.querySelectorAll('.clickable-stat').forEach(btn => {
+      btn.onclick = () => {
+        const s = btn.dataset.status;
+        currentTab = 'active';
+        statusFilter = (statusFilter === s) ? null : s;
+        render();
+      };
+    });
+    const clearBtn = document.getElementById('clearFilter');
+    if (clearBtn) clearBtn.onclick = () => { statusFilter = null; render(); };
 
     document.getElementById('openConfig').onclick = () => document.getElementById('configOverlay').classList.add('open');
     document.getElementById('closeConfig').onclick = () => document.getElementById('configOverlay').classList.remove('open');
@@ -523,6 +580,7 @@
       const entry = document.getElementById('fEntry').value;
       const duration = Number(document.getElementById('fDuration').value);
       const price = Number(document.getElementById('fPrice').value);
+      const pagamento = document.getElementById('fPagamento').value;
       const obs = document.getElementById('fObs').value.trim();
       const errEl = document.getElementById('fErr');
       if (!name) { errEl.textContent = 'Digite o nome do jogador.'; errEl.style.display = 'block'; return; }
@@ -532,9 +590,9 @@
       const exit = addDays(entry, duration);
       try {
         if (editingId) {
-          await updateDoc(doc(db, 'players', editingId), { name, entry, duration, exit, price, obs });
+          await updateDoc(doc(db, 'players', editingId), { name, entry, duration, exit, price, pagamento, obs });
         } else {
-          await addDoc(playersCol, { name, entry, duration, exit, price, obs, archived: false });
+          await addDoc(playersCol, { name, entry, duration, exit, price, pagamento, obs, archived: false });
         }
         document.getElementById('overlay').classList.remove('open');
         editingId = null;
@@ -625,4 +683,3 @@
 </script>
 </body>
 </html>
-
