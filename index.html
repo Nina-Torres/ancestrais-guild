@@ -57,21 +57,26 @@
     border: 1px solid rgba(127,184,232,0.25);
     display: flex; align-items: center; justify-content: space-between;
   }
+  .pix-card {
+    background: linear-gradient(135deg, rgba(111,209,197,0.12), rgba(15,27,51,0.4));
+    border: 1px solid rgba(111,209,197,0.28);
+  }
   .gold-label { font-size: 11px; color: #7C8AA3; letter-spacing: 0.3px; }
   .gold-value { font-size: 19px; font-weight: 700; color: #F2F6FC; }
-  .pay-breakdown {
-    display: flex; justify-content: space-between; gap: 10px; margin-top: 8px;
-    font-size: 12px; color: #9DC3EA; padding: 0 4px;
-  }
-  .pay-breakdown strong { color: #F2F6FC; }
   .mini-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .mini-stats-2 { grid-template-columns: repeat(2, 1fr); }
   .mini-stat {
     border-radius: 12px; padding: 10px 8px; text-align: center;
     background: rgba(127,184,232,0.06); border: 1px solid rgba(127,184,232,0.18);
   }
   .mini-stat .num { font-size: 16px; font-weight: 700; color: #F2F6FC; }
   .mini-stat .lbl { font-size: 10px; color: #7C8AA3; margin-top: 2px; line-height: 1.3; }
-  .mini-stat .mini-sub { font-size: 9.5px; color: #6C7A94; margin-top: 3px; }
+  .pagantes-chip {
+    margin-top: 14px; text-align: center; font-size: 12px; color: #BFE0FF;
+    background: rgba(127,184,232,0.06); border: 1px solid rgba(127,184,232,0.15);
+    border-radius: 10px; padding: 8px;
+  }
+  .pagantes-chip span { color: #7C8AA3; font-size: 11px; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
   .stat { border-radius: 12px; padding: 10px 8px; text-align: center; border: 1px solid; }
   .stat .num { font-size: 20px; font-weight: 700; }
@@ -93,6 +98,7 @@
   .chart-month { font-size: 11px; color: #7C8AA3; width: 42px; flex-shrink: 0; }
   .chart-bar-wrap { flex: 1; background: rgba(255,255,255,0.04); border-radius: 6px; overflow: hidden; height: 16px; }
   .chart-bar { height: 100%; background: linear-gradient(90deg, #2E5C8A, #7FB8E8); border-radius: 6px; min-width: 2px; }
+  .chart-bar-pix { background: linear-gradient(90deg, #1F9E5A, #6FD1C5); }
   .chart-value { font-size: 11px; color: #F2F6FC; width: 64px; text-align: right; flex-shrink: 0; }
 
   .tabs { display: flex; gap: 8px; margin-top: 16px; }
@@ -199,6 +205,7 @@
   const DAY = 24 * 60 * 60 * 1000;
   const DEFAULT_PRICE = 35000;
   const DEFAULT_DURATION = 30;
+  const DEFAULT_PIX_PRICE = 3.50;
 
   const toDateInput = (d) => new Date(d).toISOString().slice(0, 10);
   const addDays = (dateStr, days) => {
@@ -218,6 +225,8 @@
     return 'active';
   };
   const fmtGold = (n) => (Number(n) || 0).toLocaleString('pt-BR');
+  const fmtBRL = (n) => 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const isPix = (p) => p.pagamento === 'pix';
   const fmtDate = (s) => s.split('-').reverse().join('/');
   const monthKey = (dateStr) => dateStr.slice(0, 7); // yyyy-mm
   const MONTH_NAMES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
@@ -267,14 +276,15 @@
     docPdf.text('Gerado em ' + today, 14, 24);
 
     let y = 36;
-    docPdf.setFontSize(9);
+    docPdf.setFontSize(8.5);
     docPdf.setTextColor(0);
     docPdf.setFont(undefined, 'bold');
     docPdf.text('Jogador', 14, y);
-    docPdf.text('Entrada', 82, y);
-    docPdf.text('Saída', 112, y);
-    docPdf.text('Status', 142, y);
-    docPdf.text('Pagamento', 168, y);
+    docPdf.text('Entrada', 74, y);
+    docPdf.text('Saída', 100, y);
+    docPdf.text('Status', 126, y);
+    docPdf.text('Pagto', 150, y);
+    docPdf.text('Valor', 170, y);
     docPdf.setFont(undefined, 'normal');
     y += 4;
     docPdf.setDrawColor(200);
@@ -284,11 +294,12 @@
     sorted.forEach(p => {
       if (y > 280) { docPdf.addPage(); y = 20; }
       const st = statusOf(p.exit);
-      docPdf.text(String(p.name).slice(0, 26), 14, y);
-      docPdf.text(fmtDate(p.entry), 82, y);
-      docPdf.text(fmtDate(p.exit), 112, y);
-      docPdf.text(STATUS_META[st].label, 142, y);
-      docPdf.text(p.pagamento === 'pix' ? 'Pix' : 'Gold', 168, y);
+      docPdf.text(String(p.name).slice(0, 22), 14, y);
+      docPdf.text(fmtDate(p.entry), 74, y);
+      docPdf.text(fmtDate(p.exit), 100, y);
+      docPdf.text(STATUS_META[st].label, 126, y);
+      docPdf.text(isPix(p) ? 'Pix' : 'Gold', 150, y);
+      docPdf.text(isPix(p) ? fmtBRL(p.price) : fmtGold(p.price), 170, y);
       y += 7;
     });
 
@@ -297,7 +308,7 @@
     docPdf.save(`ancestrais-slots-${toDateInput(new Date())}.pdf`);
   }
 
-  function buildChart() {
+  function buildChart(type) {
     const months = [];
     const now = new Date();
     for (let i = 5; i >= 0; i--) {
@@ -305,18 +316,23 @@
       months.push({ key: `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`, label: `${MONTH_NAMES[d.getMonth()]}/${String(d.getFullYear()).slice(2)}` });
     }
     const sums = months.map(m => {
-      const total = players.reduce((acc, p) => acc + (monthKey(p.entry) === m.key ? (Number(p.price)||0) : 0), 0);
+      const total = players.reduce((acc, p) => {
+        const matchesType = type === 'pix' ? isPix(p) : !isPix(p);
+        return acc + (monthKey(p.entry) === m.key && matchesType ? (Number(p.price)||0) : 0);
+      }, 0);
       return { ...m, total };
     });
     const max = Math.max(...sums.map(s => s.total), 1);
+    const fmt = type === 'pix' ? fmtBRL : fmtGold;
+    const title = type === 'pix' ? '💳 Arrecadação em Pix por mês (R$)' : '🪙 Arrecadação em Gold por mês';
     return `
       <div class="chart-card">
-        <div class="chart-title">📊 Arrecadação por mês (últimos 6 meses)</div>
+        <div class="chart-title">${title}</div>
         ${sums.map(s => `
           <div class="chart-row">
             <div class="chart-month">${s.label}</div>
-            <div class="chart-bar-wrap"><div class="chart-bar" style="width:${(s.total/max*100).toFixed(1)}%;"></div></div>
-            <div class="chart-value">${fmtGold(s.total)}</div>
+            <div class="chart-bar-wrap"><div class="chart-bar ${type === 'pix' ? 'chart-bar-pix' : ''}" style="width:${(s.total/max*100).toFixed(1)}%;"></div></div>
+            <div class="chart-value">${fmt(s.total)}</div>
           </div>
         `).join('')}
       </div>
@@ -337,20 +353,27 @@
     const counts = { active:0, soon:0, expired:0 };
     activePlayers.forEach(p => counts[statusOf(p.exit)]++);
 
-    const isPix = (p) => p.pagamento === 'pix';
-    let total = 0, totalPix = 0, totalGold = 0;
-    let monthGold = 0, monthPix = 0, monthGoldPay = 0, weekGold = 0, monthPayers = 0, ativo = 0;
+    let totalGold = 0, totalPix = 0;
+    let monthGold = 0, monthPix = 0, weekGold = 0, weekPix = 0;
+    let monthPayersGold = 0, monthPayersPix = 0;
+    let ativoGold = 0, ativoPix = 0;
     players.forEach(p => {
       const v = Number(p.price) || 0;
-      total += v;
-      if (isPix(p)) totalPix += v; else totalGold += v;
-      if (isSameMonth(p.entry)) {
-        monthGold += v; monthPayers++;
-        if (isPix(p)) monthPix += v; else monthGoldPay += v;
+      if (isPix(p)) {
+        totalPix += v;
+        if (isSameMonth(p.entry)) { monthPix += v; monthPayersPix++; }
+        if (isFromWeek(p.entry)) weekPix += v;
+      } else {
+        totalGold += v;
+        if (isSameMonth(p.entry)) { monthGold += v; monthPayersGold++; }
+        if (isFromWeek(p.entry)) weekGold += v;
       }
-      if (isFromWeek(p.entry)) weekGold += v;
     });
-    activePlayers.forEach(p => { if (statusOf(p.exit) !== 'expired') ativo += (Number(p.price)||0); });
+    activePlayers.forEach(p => {
+      if (statusOf(p.exit) === 'expired') return;
+      if (isPix(p)) ativoPix += (Number(p.price)||0); else ativoGold += (Number(p.price)||0);
+    });
+    const monthPayers = monthPayersGold + monthPayersPix;
 
     const alerts = activePlayers.filter(p => statusOf(p.exit) === 'expired' || statusOf(p.exit) === 'soon')
       .sort((a,b) => new Date(a.exit) - new Date(b.exit));
@@ -388,28 +411,38 @@
           <span style="font-size:22px;">🪙</span>
           <div>
             <div class="gold-label">Gold arrecadado (total)</div>
-            <div class="gold-value">${fmtGold(total)}</div>
+            <div class="gold-value">${fmtGold(totalGold)}</div>
           </div>
         </div>
         <div style="text-align:right;">
-          <div class="gold-label">Slots ativos/vencendo</div>
-          <div style="font-size:15px;font-weight:600;color:#9DC3EA;">${fmtGold(ativo)}</div>
+          <div class="gold-label">Ativos/vencendo</div>
+          <div style="font-size:15px;font-weight:600;color:#9DC3EA;">${fmtGold(ativoGold)}</div>
         </div>
       </div>
-      <div class="pay-breakdown">
-        <span>💳 Pix: <strong>${fmtGold(totalPix)}</strong></span>
-        <span>🪙 Gold do jogo: <strong>${fmtGold(totalGold)}</strong></span>
+      <div class="mini-stats mini-stats-2">
+        <div class="mini-stat"><div class="num">${fmtGold(weekGold)}</div><div class="lbl">Gold na<br>semana</div></div>
+        <div class="mini-stat"><div class="num">${fmtGold(monthGold)}</div><div class="lbl">Gold no<br>mês</div></div>
       </div>
 
-      <div class="mini-stats">
-        <div class="mini-stat"><div class="num">${monthPayers}</div><div class="lbl">Pagantes<br>no mês</div></div>
-        <div class="mini-stat"><div class="num">${fmtGold(weekGold)}</div><div class="lbl">Gold na<br>semana</div></div>
-        <div class="mini-stat">
-          <div class="num">${fmtGold(monthGold)}</div>
-          <div class="lbl">Gold no mês</div>
-          <div class="mini-sub">💳${fmtGold(monthPix)} · 🪙${fmtGold(monthGoldPay)}</div>
+      <div class="gold-card pix-card">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:22px;">💳</span>
+          <div>
+            <div class="gold-label">Pix arrecadado (total)</div>
+            <div class="gold-value">${fmtBRL(totalPix)}</div>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="gold-label">Ativos/vencendo</div>
+          <div style="font-size:15px;font-weight:600;color:#9DC3EA;">${fmtBRL(ativoPix)}</div>
         </div>
       </div>
+      <div class="mini-stats mini-stats-2">
+        <div class="mini-stat"><div class="num">${fmtBRL(weekPix)}</div><div class="lbl">Pix na<br>semana</div></div>
+        <div class="mini-stat"><div class="num">${fmtBRL(monthPix)}</div><div class="lbl">Pix no<br>mês</div></div>
+      </div>
+
+      <div class="pagantes-chip">👥 ${monthPayers} pagante${monthPayers === 1 ? '' : 's'} no mês <span>(🪙 ${monthPayersGold} · 💳 ${monthPayersPix})</span></div>
 
       <div class="stats">
         ${['active','soon','expired'].map(k => `
@@ -423,7 +456,8 @@
         <div class="filter-chip">Mostrando: ${STATUS_META[statusFilter].label} <button id="clearFilter">✕ limpar filtro</button></div>
       ` : ''}
 
-      ${buildChart()}
+      ${buildChart('gold')}
+      ${buildChart('pix')}
 
       <div class="tabs">
         <button class="tab-btn ${currentTab === 'active' ? 'active' : ''}" id="tabActive">Ativos (${activePlayers.length})</button>
@@ -452,7 +486,7 @@
                   </div>
                   <div class="meta-row">
                     <span>📅 Entrou ${fmtDate(p.entry)}</span>
-                    <span>${p.pagamento === 'pix' ? '💳' : '🪙'} ${fmtGold(p.price)} gold${p.pagamento === 'pix' ? ' (Pix)' : ''}</span>
+                    <span>${isPix(p) ? `💳 ${fmtBRL(p.price)} (Pix)` : `🪙 ${fmtGold(p.price)} gold`}</span>
                   </div>
                   ${currentTab === 'active' ? `
                     <div class="exit-line" style="color:${meta.color};">
@@ -489,24 +523,18 @@
           <input class="field" id="fName" placeholder="Ex: DragonSlayer99" />
           <label>Data de entrada</label>
           <input class="field" id="fEntry" type="date" />
-          <div class="row2">
-            <div>
-              <label>Duração (dias)</label>
-              <input class="field" id="fDuration" type="number" value="${DEFAULT_DURATION}" />
-            </div>
-            <div>
-              <label>Valor do slot (gold)</label>
-              <input class="field" id="fPrice" type="number" value="${DEFAULT_PRICE}" />
-            </div>
-          </div>
+          <label>Duração (dias)</label>
+          <input class="field" id="fDuration" type="number" value="${DEFAULT_DURATION}" />
           <label>Forma de pagamento</label>
           <select class="field" id="fPagamento">
             <option value="gold">🪙 Gold no jogo</option>
             <option value="pix">💳 Pix</option>
           </select>
+          <label id="fPriceLabel">Valor do slot (gold)</label>
+          <input class="field" id="fPrice" type="number" step="0.01" value="${DEFAULT_PRICE}" />
           <label>Observações (opcional)</label>
           <textarea class="field" id="fObs" placeholder="Ex: pediu pra sair mais cedo, combinou pagamento atrasado..."></textarea>
-          <div class="hint" id="fHint">Padrão: 35.000 gold / 30 dias</div>
+          <div class="hint" id="fHint">Padrão: 35.000 gold / 30 dias · Pix: R$ 3,50 / 30 dias</div>
           <div class="err" id="fErr" style="display:none;"></div>
           <button class="save-btn" id="fSave">${editingId ? 'Salvar alterações' : 'Salvar jogador'}</button>
         </div>
@@ -530,9 +558,24 @@
     document.getElementById('fName').value = editingPlayer ? editingPlayer.name : '';
     document.getElementById('fEntry').value = editingPlayer ? editingPlayer.entry : toDateInput(new Date());
     document.getElementById('fDuration').value = editingPlayer ? editingPlayer.duration : DEFAULT_DURATION;
-    document.getElementById('fPrice').value = editingPlayer ? editingPlayer.price : DEFAULT_PRICE;
     document.getElementById('fPagamento').value = editingPlayer ? (editingPlayer.pagamento || 'gold') : 'gold';
+    document.getElementById('fPrice').value = editingPlayer
+      ? editingPlayer.price
+      : (document.getElementById('fPagamento').value === 'pix' ? DEFAULT_PIX_PRICE : DEFAULT_PRICE);
+    document.getElementById('fPriceLabel').textContent = document.getElementById('fPagamento').value === 'pix' ? 'Valor do slot (R$)' : 'Valor do slot (gold)';
     document.getElementById('fObs').value = editingPlayer ? (editingPlayer.obs || '') : '';
+
+    document.getElementById('fPagamento').onchange = (e) => {
+      const label = document.getElementById('fPriceLabel');
+      const priceInput = document.getElementById('fPrice');
+      if (e.target.value === 'pix') {
+        label.textContent = 'Valor do slot (R$)';
+        priceInput.value = DEFAULT_PIX_PRICE;
+      } else {
+        label.textContent = 'Valor do slot (gold)';
+        priceInput.value = DEFAULT_PRICE;
+      }
+    };
 
     document.getElementById('openForm').onclick = () => { editingId = null; render(); document.getElementById('overlay').classList.add('open'); };
     document.getElementById('closeForm').onclick = () => { document.getElementById('overlay').classList.remove('open'); editingId = null; };
